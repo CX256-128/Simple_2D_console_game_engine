@@ -487,7 +487,6 @@ class event_tree{
         */
         /*
             Example file: test.event
-            1.0
             Func1 1 1 Func2 4 4 Func3 5 5
             : Func1
             mov $ 10 % power ; This is the first function branch, and it will be triggered when the player step on the position (1,1)
