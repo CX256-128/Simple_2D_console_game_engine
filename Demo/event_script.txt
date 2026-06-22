@@ -1,0 +1,75 @@
+5
+heal 3 2 damage 4 4 trade 6 2 init 1 1 open 8 3
+: heal
+cmp $ 80 % blood
+jl add_
+add $ 20 % blood % blood
+goto end_add
+: add_
+mov $ 100 % blood
+: end_add
+call msg 你找到了一个回血点！
+endbr
+: damage
+add $ -5 % blood % blood
+call msg HURT!
+call msg           需要回血!
+endbr
+: trade
+cmp % power $ 30
+jg good
+jl bad
+je bad
+: loop_end
+call msg  Happy Trade!
+endbr
+: good
+add $ -10 % power % power
+call msg  10 power换10 blood
+add $ 10 % blood % blood
+goto loop_end
+: bad
+call msg You have not enough power
+goto loop_end
+: init
+call msg 你是一个......（想不起来）
+call msg 但是你知道上世被人阴了
+call msg 先探索一下吧
+endbr
+: open
+cmp % eax $ 0
+je _open
+call rand . 0.5 % xmm0
+cmp % xmm0 . 0.5
+jg _close_not
+multiply % x % y % ebx
+cmp % ebx $ 16
+je can't
+mov * D % gen_sym
+mov $ 8 % gen_x
+mov $ 2 % gen_y
+mov $ 0 % eax
+call msg 50%的概率关门成功
+endbr
+: _open
+call rand . 0.5 % xmm0
+cmp % xmm0 . 0.5
+jg _open_not
+mov *   % gen_sym
+mov $ 8 % gen_x
+mov $ 2 % gen_y
+mov $ 1 % eax
+call msg 50%的概率开门成功
+endbr
+: _close_not
+mov $ 1 % eax
+call msg 50%的概率关门失败
+endbr
+: _open_not
+mov $ 0 % eax
+call msg 50%的概率开门失败
+endbr
+: can't
+call msg 恭喜你抽中了50%的关门机会
+call msg 但是，你挡着门了(bushi)
+endbr
