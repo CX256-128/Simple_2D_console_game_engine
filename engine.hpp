@@ -7,19 +7,19 @@
 #include<algorithm>
 #include<unordered_map>
 // 使用非阻塞的函数来获取用户输入的字符
-char getcha() {
+inline char getcha() {
     if (_kbhit()) {
         return _getch();
     }
     return 0;
 }
 // 使用Windows API隐藏控制台光标
-void HideCursor() {
+inline void HideCursor() {
     CONSOLE_CURSOR_INFO cursor_info = {1, 0}; 
     SetConsoleCursorInfo(GetStdHandle(STD_OUTPUT_HANDLE), &cursor_info);
 }
 // 使用windows API来自由控制控制台上面的光标位置以辅助实现渲染功能
-void gotoxy(int x, int y) {
+inline void gotoxy(int x, int y) {
     COORD pos = { static_cast<SHORT>(x), static_cast<SHORT>(y) };
     SetConsoleCursorPosition(GetStdHandle(STD_OUTPUT_HANDLE), pos);
 }
@@ -470,7 +470,7 @@ class event_tree{
         /*
             Basic file structure:
             Line
-            1       <version>
+            1       <number>
             2       <branch_name1> <x1> <y1> <branch_name2> <x2> <y2> <branch_name3> <x3> <y3> ...
             3       : <branch_name1> 
             4       <The_Exact_Code_For_the_particular_line_number>
