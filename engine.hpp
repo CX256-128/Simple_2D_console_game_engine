@@ -6,6 +6,7 @@
 #include <windows.h>
 #include<algorithm>
 #include<unordered_map>
+#include<ctime>
 // 使用非阻塞的函数来获取用户输入的字符
 inline char getcha() {
     if (_kbhit()) {
@@ -30,7 +31,9 @@ struct variable_table{
     int eax=0,ebx=0;
     long long rax=0,rbx=0; 
     // time_register is the write_only
-    std::vector<int> time_reg;
+    std::unordered_map<time_t,std::vector<std::streampos>> time_reg;
+    // We use this to store the positions of time-related events
+    // And in each main loop we will check if this time stamp has passed
     // the default set for the player
     int blood=0,power=0,shield=0;
     int max_blood=0,max_power=0,max_shield=0;
@@ -263,9 +266,9 @@ inline void mov(variable_table& target,int value,const std::string& dest){
     else if(dest == "gen_y"){
         target.gen_y.push_back(value);
     }
-    else if(dest == "time_reg"){
-        target.time_reg.push_back(value);
-    }
+    //else if(dest == "time_reg"){
+    //    target.time_reg.push_back(value);
+    //}
     else if(dest == "direction"){
         target.direction = value;
     }
@@ -399,7 +402,7 @@ class event_tree{
         //std::vector<std::streampos> temp_offsets; // To manage the offsets as the stack to achieve the temporary call and return
     public:
         std::vector<std::vector<int>> trigger_table;
-        std::vector<std::ifstream> wait;
+        //std::vector<std::ifstream> wait;
         // to open the file for reading
         inline bool open(const std::string& filename){
             file.open(filename, std::ios::in | std::ios::binary);
@@ -467,6 +470,7 @@ class event_tree{
         // It tries move the value in the preset registers
         // And use the simplest gramma to function well
         // Also its file is by fragments which is easy to reuse and locate
+        // Warning: Branch can't be named as endbr
         /*
             Basic file structure:
             Line
@@ -483,11 +487,10 @@ class event_tree{
             60      </The_Exact_Code_For_the_particular_line_number>
             61      endbr
             ...     ...
-
         */
         /*
             Example file: test.event
-            Func1 1 1 Func2 4 4 Func3 5 5
+            Func1 1 1 Func2 4 4 Func3 5 5 Func4 6 6
             : Func1
             mov $ 10 % power ; This is the first function branch, and it will be triggered when the player step on the position (1,1)
             mov $ 20 % blood
@@ -512,7 +515,8 @@ class event_tree{
             add $ -15 % power
             add $ 5 % blood
             endbr
-
+            : Func4
+            wait 5 
         */
         /*
         Some Basic Gramma:
@@ -532,11 +536,24 @@ class event_tree{
             je/jne/jg/jl <branch_name>  ; Just to achieve the conditional jump based on the cmp_flag
             call <sys_function_name> <arg1> <arg2>  ; Just to call the system function, 
                                                     ; and we will provide some basic system functions like : msg , random , etc.
+            wait <time_period> <label_name>         ; tell the engine to wait for a certain time period, and execute the code before the label
+                                                    ; If we just read this label, it will jump to code after the label
+                                                    ; This <time_period> is the seconds
         */
         inline void call(int i,variable_table& target,display_table& display){
             std::string branch_name = this->namemap[i];
             this->file.clear(); 
             this->file.seekg(this->branches[branch_name]);
+            while(1){
+                bool go = this->interpreter(target,display);
+                if(!go){
+                    break;
+                }
+            }
+        }
+        inline void call(std::streampos pos,variable_table& target,display_table& display){
+            this->file.clear(); 
+            this->file.seekg(pos);
             while(1){
                 bool go = this->interpreter(target,display);
                 if(!go){
@@ -976,6 +993,29 @@ class event_tree{
                     return false;
                 }
             }
+            else if(code == "wait"){
+                time_t now = time(nullptr);
+                int time_period;
+                file>>time_period;
+                now += time_period;
+                std::string label_name;
+                file>>label_name;
+                target.time_reg[now].push_back(file.tellg());
+                if(label_name == "endbr"){
+                    this->file.clear();
+                    this->file.seekg(0,std::ios::beg);
+                    target.cmp_flag = 2; // Set the cmp_flag to 2 to prevent the further use of the conditional jump in the current branch
+                    return false;
+                }
+                try{
+                    std::streampos pos = branches.at(label_name);
+                }catch(const std::out_of_range& e){
+                    std::cerr<<"UNDEFINED LABEL"<<std::endl;
+                    return false;
+                }
+                file.seekg(this->branches[label_name], std::ios::beg);
+                
+            }
             else{
                 std::cerr<<"INVALID CODE"<<std::endl;
                 return false;
@@ -1113,6 +1153,21 @@ class engine{
                 gotoxy(0,0);
             }
         }
+        inline void time_check(){
+            time_t now = time(nullptr);
+            try{
+                std::vector<std::streampos> pos = this->variable.time_reg.at(now);
+                for(auto& p : pos){
+                    this->event.call(p, this->variable, this->display);
+                }
+                variable.time_reg.erase(now);
+            }catch(const std::out_of_range& e){
+                return ;
+            }catch(const std::exception& e){
+                std::cerr << "Error occurred: " << e.what() << std::endl;
+            }
+            return ;
+        }
         inline void run(int millisec_per_frame){ 
             HideCursor();                 // 隐藏光标，提升视觉体验
             srand(time(0));
@@ -1126,8 +1181,9 @@ class engine{
                     input_analysis(ch);         // 处理移动/交互（内部会触发事件）
                     generate();           // 应用事件中产生的地图修改
                     message();            // 显示事件中产生的消息（并清空消息队列）
+                    
                 }
-                
+                time_check();
                                         //  60 FPS
                 Sleep(millisec_per_frame);
             }

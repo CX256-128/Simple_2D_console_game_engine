@@ -1,5 +1,5 @@
-5
-heal 3 2 damage 4 4 trade 6 2 init 1 1 open 8 3
+6
+heal 3 2 damage 4 4 trade 6 2 init 1 1 open 8 3 out 8 2
 : heal
 cmp $ 80 % blood
 jl add_
@@ -9,11 +9,15 @@ goto end_add
 mov $ 100 % blood
 : end_add
 call msg 你找到了一个回血点！
+wait 1 endbr
+call msg  
 endbr
 : damage
 add $ -5 % blood % blood
 call msg HURT!
 call msg           需要回血!
+wait 1 endbr
+call msg  
 endbr
 : trade
 cmp % power $ 30
@@ -72,4 +76,18 @@ endbr
 : can't
 call msg 恭喜你抽中了50%的关门机会
 call msg 但是，你挡着门了(bushi)
+endbr
+: out
+cmp % xmm1 . 0.0
+je gout
+mov . 0.0 % xmm1
+wait 1 endbr
+call msg 你已回家，家里面很安全
+mov $ 3 % sight
+endbr
+: gout
+mov . 1.0 % xmm1
+wait 1 endbr
+call msg 你已出门，外面有迷雾
+mov $ 1 % sight
 endbr
