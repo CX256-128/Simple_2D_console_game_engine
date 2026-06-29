@@ -60,6 +60,9 @@ endbr
 endbr
 ```
 
+**Tips：The name of the label can't be endbr**
+
+
 ## Manual for the script file
 This is the core feature of the engine: a minimal interpreter designed around a in-built-register-based architecture.
 
@@ -121,5 +124,15 @@ Parameters in instructions must be prefixed with a symbol to indicate their type
 
 `call rand . 0.5 % <dest>` – Generates a floating-point random number (0.0 ~ 1.0) and stores it in <dest>. Typically used with `% xmm0` or `% xmm1`.
 
-
-
+---
+**Setting a timer**  
+`wait <seconds> <label>` - Set a timer, and we execute the code after this sentence before the label only after this period.  
++ Example:
+ ```text
+wait 2 and     ; set a 2-second timer
+mov * a % sym  ; code here will be executed after 2 seconds
+mov $ 2 % sym_x
+mov $ 2 % sym_y
+: and
+...            ; And the main loop will do other things here
+```
