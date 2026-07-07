@@ -24,6 +24,20 @@ inline void gotoxy(int x, int y) {
     COORD pos = { static_cast<SHORT>(x), static_cast<SHORT>(y) };
     SetConsoleCursorPosition(GetStdHandle(STD_OUTPUT_HANDLE), pos);
 }
+// Two inprovements are to be made in the future.
+
+// Time : 2026/7/7  
+// We want to introduce a new feature which is about the memory
+// It is a integrated feature for which the script can access the memory and store the data in the memory
+// And it's not like the assembly language where the memory is organized in the form of the stack or heap
+// But we like to use a more advanced way just in the form of the modern programming language
+// Name-value pair is such a way
+// Thus we need to override the keyword "mov" and "cmp" and "add" and "multiply" and "divide".
+// And we want to use the prefix '&' to indicate the memory access
+
+// Time : 2026/7/7
+// We need to change the logic of the menber function of the run in the the engine class
+// Because this simple pausing logic is not good enough for the fps stabilization and the time control
 struct variable_table{
     const double version = 1.0;
     // general registers
@@ -78,7 +92,7 @@ class display_table{
         std::vector<char> barricade;
         char hidden = ' ';
         char player = '&';
-        inline void read(const std::string& filename){
+        void read(const std::string& filename){
             std::ifstream file(filename);
             // Implementation for reading the file
             if(!file.is_open()){
@@ -116,18 +130,18 @@ class display_table{
             file.close();
             return ;
         }
-        inline void initialize_size(int col,int row){
+        void initialize_size(int col,int row){
             display_table.resize(row);
             for(int i=0;i<row;i++){
                 display_table[i].resize(col);
             }
         }
-        inline void get_size(int& col,int& row){
+        void get_size(int& col,int& row){
             row = this->display_table.size();
             col = this->display_table[0].size();
         }
         char dir[4] = {'^','>','v','<'};
-        inline void display(variable_table& target){
+        void display(variable_table& target){
             // calculate the sight range
             int x_min = std::max(0,target.x-target.sight);
             int y_min = std::max(0,target.y-target.sight);
@@ -172,7 +186,7 @@ class display_table{
             this->last_y = y_max-y_min+3;
             gotoxy(0,0);
         }
-        inline bool teleport(int x,int y,variable_table& target){
+        bool teleport(int x,int y,variable_table& target){
             if(x > target.x){
                 target.direction = 1;
             }
@@ -208,23 +222,23 @@ class display_table{
             this->display_table[y][x]=this->player;
             return true;
         }
-        inline bool initial_teleport(int x,int y,variable_table& target){
+        bool initial_teleport(int x,int y,variable_table& target){
             this->hidden = this->display_table[y][x];
             return this->teleport(x,y,target);
         }
         //1. If you want to generate the entity, you can use this function to generate the entity on the map, and you can also set the symbol for the entity
         //   But you have to correlate the entity with the event_tree where its behavior is defined, and you can also set the symbol for the entity
         //2. Or if you want to change the static setting in the display map,you can also use this function
-        inline void generate(int x,int y,char symbol){
+        void generate(int x,int y,char symbol){
             this->display_table[y][x]=symbol;
         }
-        inline void remove(int x,int y){
+        void remove(int x,int y){
             this->display_table[y][x]=' ';
         }
-        inline void remove(int x,int y,char symbol){
+        void remove(int x,int y,char symbol){
             this->display_table[y][x]=symbol;
         }
-        inline bool generate(const variable_table& target){
+        bool generate(const variable_table& target){
             if(target.gen_x.size()!=target.gen_y.size() || target.gen_x.size()!=target.gen_sym.size()){
                 std::cerr<<"GENERATION SIZE MISMATCH"<<std::endl;
                 return false;
@@ -404,26 +418,26 @@ class event_tree{
         std::vector<std::vector<int>> trigger_table;
         //std::vector<std::ifstream> wait;
         // to open the file for reading
-        inline bool open(const std::string& filename){
+        bool open(const std::string& filename){
             file.open(filename, std::ios::in | std::ios::binary);
             if(!file.is_open()){
                 return false;
             }
             return true;
         }
-        inline void close(){
+        void close(){
             file.close();
         }
 
         // to generate the trigger table: initialize_size() -> build()
         // ANd make sure you have already made the file* open
-        inline void initialize_size(int col,int row){
+        void initialize_size(int col,int row){
             trigger_table.resize(row);
             for(int i=0;i<row;i++){
                 trigger_table[i].resize(col);
             }
         }
-        inline void build(){
+        void build(){
             if(!file.is_open()){
                 return;
             }
@@ -540,7 +554,7 @@ class event_tree{
                                                     ; If we just read this label, it will jump to code after the label
                                                     ; This <time_period> is the seconds
         */
-        inline void call(int i,variable_table& target,display_table& display){
+        void call(int i,variable_table& target,display_table& display){
             std::string branch_name = this->namemap[i];
             this->file.clear(); 
             this->file.seekg(this->branches[branch_name]);
@@ -551,7 +565,7 @@ class event_tree{
                 }
             }
         }
-        inline void call(std::streampos pos,variable_table& target,display_table& display){
+        void call(std::streampos pos,variable_table& target,display_table& display){
             this->file.clear(); 
             this->file.seekg(pos);
             while(1){
@@ -561,7 +575,7 @@ class event_tree{
                 }
             }
         }
-        inline bool interpreter(variable_table& target,display_table& display){
+        bool interpreter(variable_table& target,display_table& display){
             // This is the interpreter for the single line of the code in the event tree
             // It will interpret the code and execute the corresponding operation
             // For the sake of simplicity, we will not implement the full functionality of the event tree in this version
@@ -1065,10 +1079,10 @@ class engine{
             event.initialize_size(col,row);
             event.build();
         }
-        inline void render(){
+        void render(){
             display.display(variable);
         }
-        inline void input_analysis(char input){
+        void input_analysis(char input){
             int x = variable.x;
             int y = variable.y;
             if(input == 'w'){
@@ -1102,7 +1116,7 @@ class engine{
                 this->trigger_check(x,y);
             }
         }
-        inline void trigger_check(int x,int y){
+        void trigger_check(int x,int y){
             if(this->event.trigger_table[y][x]!=0){
                 int xx = this->variable.x;
                 int yy = this->variable.y;
@@ -1118,7 +1132,7 @@ class engine{
                 }
             }
         }
-        inline void generate(){
+        void generate(){
             if(variable.gen_x.size() == 0){
                 return;
             }
@@ -1131,7 +1145,7 @@ class engine{
                 variable.gen_sym.clear();
             }
         }
-        inline void message(){
+        void message(){
             if(variable.msg.empty()){
                 return;
             }
@@ -1153,7 +1167,7 @@ class engine{
                 gotoxy(0,0);
             }
         }
-        inline void time_check(){
+        void time_check(){
             time_t now = time(nullptr);
             try{
                 std::vector<std::streampos> pos = this->variable.time_reg.at(now);
@@ -1168,7 +1182,7 @@ class engine{
             }
             return ;
         }
-        inline void run(int millisec_per_frame){ 
+        void run(int millisec_per_frame){ 
             HideCursor();                 // 隐藏光标，提升视觉体验
             srand(time(0));
             is_running = true;            // 确保运行标志为真;
