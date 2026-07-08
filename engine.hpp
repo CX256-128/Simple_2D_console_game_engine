@@ -6,7 +6,7 @@
 #include <windows.h>
 #include<algorithm>
 #include<unordered_map>
-#include<ctime>
+#include<chrono>
 // 使用非阻塞的函数来获取用户输入的字符
 inline char getcha() {
     if (_kbhit()) {
@@ -24,6 +24,8 @@ inline void gotoxy(int x, int y) {
     COORD pos = { static_cast<SHORT>(x), static_cast<SHORT>(y) };
     SetConsoleCursorPosition(GetStdHandle(STD_OUTPUT_HANDLE), pos);
 }
+template<typename T>
+std::vector<std::pair<std::string,T>> memory;
 // Two inprovements are to be made in the future.
 
 // Time : 2026/7/7  
@@ -34,6 +36,8 @@ inline void gotoxy(int x, int y) {
 // Name-value pair is such a way
 // Thus we need to override the keyword "mov" and "cmp" and "add" and "multiply" and "divide".
 // And we want to use the prefix '&' to indicate the memory access
+// The name of each customized variable must be <type><name>
+// There are three types of the variable: int, double, char
 
 // Time : 2026/7/7
 // We need to change the logic of the menber function of the run in the the engine class
@@ -69,13 +73,13 @@ inline void read_variable_table(const std::string& filename,variable_table& targ
     std::ifstream file(filename);
     if(!file.is_open()){
         std::cerr<<"Error opening file: "<<filename<<std::endl;
-        return;
+        exit(-1);
     }
     double version;
     file>>version;
     if(version!=target.version){
         std::cerr<<"VERSION MISMATCH"<<std::endl;
-        return;
+        exit(-1);
     }
     file>>target.blood>>target.power>>target.shield;
     file>>target.max_blood>>target.max_power>>target.max_shield;
@@ -97,13 +101,13 @@ class display_table{
             // Implementation for reading the file
             if(!file.is_open()){
                 std::cerr<<"Error opening file: "<<filename<<std::endl;
-                return;
+                exit(-1);
             }
             double version;
             file>>version;
             if(version!=this->version){
                 std::cerr<<"VERSION MISMATCH"<<std::endl;
-                return;
+                exit(-1);
             }
             int x,y;
             file >> x >> y;
@@ -1067,10 +1071,11 @@ class engine{
         variable_table variable;
         display_table display;
         event_tree event;
-    public:
         std::vector<int> last_msg_length;
+        int last_sight;
+    public:
         bool is_running;
-        void set_up(const std::string& variable_file,const std::string& display_file,const std::string& event_file){
+        virtual void set_up(const std::string& variable_file,const std::string& display_file,const std::string& event_file){
             read_variable_table(variable_file,variable);
             display.read(display_file);
             event.open(event_file);
@@ -1079,10 +1084,10 @@ class engine{
             event.initialize_size(col,row);
             event.build();
         }
-        void render(){
+        virtual void render(){
             display.display(variable);
         }
-        void input_analysis(char input){
+        virtual void input_analysis(char input){
             int x = variable.x;
             int y = variable.y;
             if(input == 'w'){
@@ -1116,7 +1121,7 @@ class engine{
                 this->trigger_check(x,y);
             }
         }
-        void trigger_check(int x,int y){
+        virtual void trigger_check(int x,int y){
             if(this->event.trigger_table[y][x]!=0){
                 int xx = this->variable.x;
                 int yy = this->variable.y;
@@ -1132,7 +1137,7 @@ class engine{
                 }
             }
         }
-        void generate(){
+        virtual void generate(){
             if(variable.gen_x.size() == 0){
                 return;
             }
@@ -1145,12 +1150,12 @@ class engine{
                 variable.gen_sym.clear();
             }
         }
-        void message(){
+        virtual void message(){
             if(variable.msg.empty()){
                 return;
             }
             else{
-                gotoxy(0,variable.sight*2+5);
+                gotoxy(0,last_sight*2+10);
                 for(int i=0;i<last_msg_length.size();i++){
                     for(int j=0;j<last_msg_length[i];j++){
                         std::cout<<' ';
@@ -1158,7 +1163,8 @@ class engine{
                     std::cout<<'\n';
                 }
                 this->last_msg_length.clear();
-                gotoxy(0,variable.sight*2+5);
+                this->last_sight = variable.sight;
+                gotoxy(0,variable.sight*2+10);
                 for(int i=0;i<variable.msg.size();i++){
                     std::cout<<variable.msg[i]<<'\n';
                     this->last_msg_length.push_back(variable.msg[i].size());
@@ -1167,7 +1173,7 @@ class engine{
                 gotoxy(0,0);
             }
         }
-        void time_check(){
+        virtual void time_check(){
             time_t now = time(nullptr);
             try{
                 std::vector<std::streampos> pos = this->variable.time_reg.at(now);
@@ -1182,12 +1188,13 @@ class engine{
             }
             return ;
         }
-        void run(int millisec_per_frame){ 
+        virtual void run(int millisec_per_frame){ 
             HideCursor();                 // 隐藏光标，提升视觉体验
             srand(time(0));
             is_running = true;            // 确保运行标志为真;
             this->display.initial_teleport(variable.x,variable.y,variable); // 初始化玩家位置
             while (is_running) {
+                auto start = std::chrono::high_resolution_clock::now(); // 吓哭了这个类型名字
                 render();                 // 渲染当前视野
 
                 char ch = getcha();       // 非阻塞获取输入
@@ -1198,8 +1205,10 @@ class engine{
                     
                 }
                 time_check();
+                auto end = std::chrono::high_resolution_clock::now();
+                auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
                                         //  60 FPS
-                Sleep(millisec_per_frame);
+                Sleep(millisec_per_frame-duration > 0 ? millisec_per_frame-duration : 0); // 控制帧率，确保每帧至少持续指定毫秒数
             }
 
             event.close();                // 关闭事件脚本文件，释放资源
