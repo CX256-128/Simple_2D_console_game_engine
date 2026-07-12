@@ -157,7 +157,7 @@ inline void read_variable_table(const std::string& filename,variable_table& targ
     return ;
 }
 class display_table{
-    private:
+    protected:
         const double version = 1.0;
         std::vector<std::vector<char>> display_table;
         int last_x,last_y;
@@ -482,7 +482,7 @@ Tips:
 
 */
 class event_tree{
-    private:
+    protected:
         std::unordered_map<std::string,std::streampos> branches;
         std::unordered_map<int,std::string> namemap;
         std::ifstream file;
@@ -1136,7 +1136,7 @@ class event_tree{
 };
 
 class engine{
-    private:
+    protected:
         variable_table variable;
         display_table display;
         event_tree event;
