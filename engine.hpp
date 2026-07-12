@@ -1,29 +1,98 @@
+// #pragma once
+// #include <iostream>
+// #include<fstream>
+// #include <vector>
+// #include <conio.h>
+// #include <windows.h>
+// #include<algorithm>
+// #include<unordered_map>
+// #include<chrono>
+
 #pragma once
 #include <iostream>
-#include<fstream>
+#include <fstream>
 #include <vector>
-#include <conio.h>
-#include <windows.h>
-#include<algorithm>
-#include<unordered_map>
-#include<chrono>
+#include <algorithm>
+#include <unordered_map>
+#include <chrono>
+
+// compatibility for different platforms 
+#if defined( _WIN32) || defined(_WIN64)  // Windows 平台
+    #include <conio.h>
+    #include <windows.h>
+#elif defined(__linux__) || defined(__unix__)  // Linux / Unix 兼容环境
+    #include <termios.h>
+    #include <unistd.h>
+    #include <sys/select.h>
+    #include <time.h>
+    inline void Sleep(unsigned int ms) {
+        struct timespec ts;
+       	ts.tv_sec = ms / 1000;
+        ts.tv_nsec = (ms % 1000) * 1000000;
+       	while (nanosleep(&ts, &ts) == -1) {
+        	
+	}
+    }
+#endif
+
 // 使用非阻塞的函数来获取用户输入的字符
 inline char getcha() {
+#if defined(_WIN32) || defined(_WIN64)
     if (_kbhit()) {
         return _getch();
     }
     return 0;
+#elif defined(__linux__) || defined(__unix__)
+    static bool initialized = false;
+    static struct termios orig_termios;
+    if (!initialized) {
+        tcgetattr(STDIN_FILENO, &orig_termios);
+        struct termios new_termios = orig_termios;
+        new_termios.c_lflag &= ~(ICANON | ECHO);
+        new_termios.c_cc[VMIN]  = 0;   
+        new_termios.c_cc[VTIME] = 0;
+        tcsetattr(STDIN_FILENO, TCSANOW, &new_termios);
+        atexit([]{
+            tcsetattr(STDIN_FILENO, TCSANOW, &orig_termios);
+        });
+        initialized = true;
+    }
+
+    fd_set readfds;
+    FD_ZERO(&readfds);
+    FD_SET(STDIN_FILENO, &readfds);
+    struct timeval tv = {0, 0};         
+    if (select(STDIN_FILENO + 1, &readfds, nullptr, nullptr, &tv) > 0) {
+        char ch;
+        if (read(STDIN_FILENO, &ch, 1) == 1) {
+            return ch;
+        }
+    }
+    return 0;
+#endif
 }
 // 使用Windows API隐藏控制台光标
 inline void HideCursor() {
+#if defined(_WIN32) || defined(_WIN64)
     CONSOLE_CURSOR_INFO cursor_info = {1, 0}; 
     SetConsoleCursorInfo(GetStdHandle(STD_OUTPUT_HANDLE), &cursor_info);
+#elif defined(__linux__) || defined(__unix__)
+    std::cout << "\033[?25l";
+    std::cout.flush();
+#endif
 }
 // 使用windows API来自由控制控制台上面的光标位置以辅助实现渲染功能
 inline void gotoxy(int x, int y) {
+#if defined(_WIN32) || defined(_WIN64)
     COORD pos = { static_cast<SHORT>(x), static_cast<SHORT>(y) };
     SetConsoleCursorPosition(GetStdHandle(STD_OUTPUT_HANDLE), pos);
+#elif defined(__linux__) || defined(__unix__)
+    std::cout << "\033[" << y + 1 << ";" << x + 1 << "H";
+    std::cout.flush();
+#endif
 }
+
+
 template<typename T>
 std::vector<std::pair<std::string,T>> memory;
 // Two inprovements are to be made in the future.
