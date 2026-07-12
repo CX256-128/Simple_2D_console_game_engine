@@ -9,10 +9,13 @@
 #include "engine.h"
 
 int main() {
+    // Advised if in linux
+    // - > printf("\033c");
+
     engine my_game;
     
     // initialize：provide variable file、display file、script file
-    my_game.set_up("config.var", "level1.map", "level1.event");
+    game.set_up("variable_table.txt","display_table.txt","event_script.txt");
     
     // Run the main loop of the game，this parameter is the gap millionsecs between frames（16ms $\implies$ 60 FPS）
     my_game.run(16);
